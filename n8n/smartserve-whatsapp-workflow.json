@@ -1,0 +1,471 @@
+{
+  "name": "SmartServe AI - WhatsApp Food Ordering Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "smartserve/whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-verify",
+      "name": "WhatsApp Webhook (Verify)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1400, -300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $input.first().json.query || {};\nconst expected = $env.WHATSAPP_VERIFY_TOKEN;\nconst valid = query['hub.mode'] === 'subscribe' && query['hub.verify_token'] === expected;\nreturn [{ json: { valid, challenge: query['hub.challenge'] || '' } }];"
+      },
+      "id": "check-verify-token",
+      "name": "Check Verify Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1180, -300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-token-valid",
+      "name": "Token Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-960, -300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.challenge}}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-challenge",
+      "name": "Respond With Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-740, -380]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Forbidden",
+        "options": { "responseCode": 403 }
+      },
+      "id": "respond-forbidden",
+      "name": "Respond Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-740, -220]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "smartserve/whatsapp",
+        "responseMode": "onReceived",
+        "options": { "responseCode": 200 }
+      },
+      "id": "wh-receive",
+      "name": "WhatsApp Webhook (Receive)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1400, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst entry = (body.entry || [])[0];\nconst change = entry && (entry.changes || [])[0];\nconst value = change && change.value;\n\nif (!value || value.statuses || !value.messages || value.messages.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\nconst message = value.messages[0];\nconst contact = (value.contacts || [])[0] || {};\n\nreturn [{\n  json: {\n    skip: false,\n    phone: message.from,\n    whatsappMessageId: message.id,\n    messageType: message.type,\n    contactName: contact.profile ? contact.profile.name : null,\n    message,\n  },\n}];"
+      },
+      "id": "extract-message",
+      "name": "Extract Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1180, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.skip}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "false" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-is-message",
+      "name": "Is Customer Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-960, 100]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            { "conditions": { "conditions": [{ "leftValue": "={{$json.messageType}}", "rightValue": "text", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "text" },
+            { "conditions": { "conditions": [{ "leftValue": "={{$json.messageType}}", "rightValue": "audio", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "audio" },
+            { "conditions": { "conditions": [{ "leftValue": "={{$json.messageType}}", "rightValue": "image", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "image" },
+            { "conditions": { "conditions": [{ "leftValue": "={{$json.messageType}}", "rightValue": "location", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "location" },
+            { "conditions": { "conditions": [{ "leftValue": "={{$json.messageType}}", "rightValue": "interactive", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "interactive" }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      },
+      "id": "switch-message-type",
+      "name": "Detect Message Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [-740, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nreturn [{ json: { ...item, extractedText: item.message.text.body } }];"
+      },
+      "id": "extract-text",
+      "name": "Extract Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-520, -60]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/{{$env.WHATSAPP_API_VERSION || 'v20.0'}}/{{$json.message.audio.id}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "get-audio-meta",
+      "name": "Get Audio Media URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-520, 40]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$json.url}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "download-audio",
+      "name": "Download Voice Note",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-320, 40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "data" },
+            { "name": "model", "value": "whisper-1" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "transcribe-audio",
+      "name": "Transcribe Audio (Whisper)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-120, 40]
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Detect Message Type').first().json;\nreturn [{ json: { ...original, extractedText: $json.text } }];"
+      },
+      "id": "extract-transcript",
+      "name": "Clean/Edit Transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 40]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/{{$env.WHATSAPP_API_VERSION || 'v20.0'}}/{{$json.message.image.id}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "get-image-meta",
+      "name": "Get Image Media URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-520, 160]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$json.url}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "download-image",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-320, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const binary = $input.first().binary.data;\nconst base64 = binary.data;\nconst mime = binary.mimeType || 'image/jpeg';\nreturn [{ json: { ...$('Detect Message Type').first().json, dataUrl: `data:${mime};base64,${base64}` } }];"
+      },
+      "id": "encode-image",
+      "name": "Base64 Encode Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-120, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o', max_tokens: 300, messages: [ { role: 'user', content: [ { type: 'text', text: 'Describe this image in one or two sentences and infer what the customer wants (menu question, address photo, similar-dish request).' }, { type: 'image_url', image_url: { url: $json.dataUrl } } ] } ] }) }}",
+        "options": {}
+      },
+      "id": "analyze-image",
+      "name": "Analyze Image (GPT-4o Vision)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [80, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Detect Message Type').first().json;\nconst description = $json.choices[0].message.content;\nconst caption = original.message.image.caption;\nconst text = caption\n  ? `[Customer sent an image with caption: \"${caption}\"]. Image shows: ${description}`\n  : `[Customer sent an image]. Image shows: ${description}`;\nreturn [{ json: { ...original, extractedText: text } }];"
+      },
+      "id": "extract-image-description",
+      "name": "Extract Image Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst loc = item.message.location;\nreturn [{ json: { ...item, extractedText: `[Customer shared a location] latitude: ${loc.latitude}, longitude: ${loc.longitude}${loc.address ? ', address: ' + loc.address : ''}` } }];"
+      },
+      "id": "format-location",
+      "name": "Format Location Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-520, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst interactive = item.message.interactive;\nconst text = interactive.type === 'button_reply' ? interactive.button_reply.title : (interactive.list_reply ? interactive.list_reply.title : '');\nreturn [{ json: { ...item, extractedText: text } }];"
+      },
+      "id": "format-interactive",
+      "name": "Format Interactive Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-520, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/{{$env.WHATSAPP_API_VERSION || 'v20.0'}}/{{$env.WHATSAPP_PHONE_NUMBER_ID}}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.phone, type: 'text', text: { body: \"I can't process that type of message yet. Could you send it as text or voice?\" } }) }}",
+        "options": {}
+      },
+      "id": "send-unsupported-reply",
+      "name": "Send Unsupported-Type Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-520, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.BACKEND_URL}}/api/n8n/process-message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "x-n8n-secret", "value": "={{$env.N8N_SHARED_SECRET}}" }]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, text: $json.extractedText, messageType: $json.messageType, whatsappMessageId: $json.whatsappMessageId }) }}",
+        "options": {}
+      },
+      "id": "call-backend-agent",
+      "name": "AI Agent (Backend: menu/order/faq tools + memory)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 60]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.duplicate}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "false" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-not-duplicate",
+      "name": "Not a Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 60]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/{{$env.WHATSAPP_API_VERSION || 'v20.0'}}/{{$env.WHATSAPP_PHONE_NUMBER_ID}}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $('Detect Message Type').first().json.phone, type: 'text', text: { body: $json.replyText } }) }}",
+        "options": {}
+      },
+      "id": "send-text-reply",
+      "name": "Response Formatter -> Send WhatsApp Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, -20]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "images",
+        "options": {}
+      },
+      "id": "split-images",
+      "name": "Split Menu Images",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [900, 140]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/{{$env.WHATSAPP_API_VERSION || 'v20.0'}}/{{$env.WHATSAPP_PHONE_NUMBER_ID}}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $('Detect Message Type').first().json.phone, type: 'image', image: { link: $json.url, caption: $json.caption } }) }}",
+        "options": {}
+      },
+      "id": "send-image-reply",
+      "name": "Send WhatsApp Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 140]
+    },
+    {
+      "parameters": {},
+      "id": "noop-duplicate",
+      "name": "Duplicate - Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 260]
+    },
+    {
+      "parameters": {},
+      "id": "noop-skip",
+      "name": "Not a Customer Message - Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-740, 220]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook (Verify)": { "main": [[{ "node": "Check Verify Token", "type": "main", "index": 0 }]] },
+    "Check Verify Token": { "main": [[{ "node": "Token Valid?", "type": "main", "index": 0 }]] },
+    "Token Valid?": {
+      "main": [
+        [{ "node": "Respond With Challenge", "type": "main", "index": 0 }],
+        [{ "node": "Respond Forbidden", "type": "main", "index": 0 }]
+      ]
+    },
+    "WhatsApp Webhook (Receive)": { "main": [[{ "node": "Extract Message", "type": "main", "index": 0 }]] },
+    "Extract Message": { "main": [[{ "node": "Is Customer Message?", "type": "main", "index": 0 }]] },
+    "Is Customer Message?": {
+      "main": [
+        [{ "node": "Detect Message Type", "type": "main", "index": 0 }],
+        [{ "node": "Not a Customer Message - Skip", "type": "main", "index": 0 }]
+      ]
+    },
+    "Detect Message Type": {
+      "main": [
+        [{ "node": "Extract Text", "type": "main", "index": 0 }],
+        [{ "node": "Get Audio Media URL", "type": "main", "index": 0 }],
+        [{ "node": "Get Image Media URL", "type": "main", "index": 0 }],
+        [{ "node": "Format Location Text", "type": "main", "index": 0 }],
+        [{ "node": "Format Interactive Reply", "type": "main", "index": 0 }],
+        [{ "node": "Send Unsupported-Type Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Text": { "main": [[{ "node": "AI Agent (Backend: menu/order/faq tools + memory)", "type": "main", "index": 0 }]] },
+    "Get Audio Media URL": { "main": [[{ "node": "Download Voice Note", "type": "main", "index": 0 }]] },
+    "Download Voice Note": { "main": [[{ "node": "Transcribe Audio (Whisper)", "type": "main", "index": 0 }]] },
+    "Transcribe Audio (Whisper)": { "main": [[{ "node": "Clean/Edit Transcript", "type": "main", "index": 0 }]] },
+    "Clean/Edit Transcript": { "main": [[{ "node": "AI Agent (Backend: menu/order/faq tools + memory)", "type": "main", "index": 0 }]] },
+    "Get Image Media URL": { "main": [[{ "node": "Download Image", "type": "main", "index": 0 }]] },
+    "Download Image": { "main": [[{ "node": "Base64 Encode Image", "type": "main", "index": 0 }]] },
+    "Base64 Encode Image": { "main": [[{ "node": "Analyze Image (GPT-4o Vision)", "type": "main", "index": 0 }]] },
+    "Analyze Image (GPT-4o Vision)": { "main": [[{ "node": "Extract Image Intent", "type": "main", "index": 0 }]] },
+    "Extract Image Intent": { "main": [[{ "node": "AI Agent (Backend: menu/order/faq tools + memory)", "type": "main", "index": 0 }]] },
+    "Format Location Text": { "main": [[{ "node": "AI Agent (Backend: menu/order/faq tools + memory)", "type": "main", "index": 0 }]] },
+    "Format Interactive Reply": { "main": [[{ "node": "AI Agent (Backend: menu/order/faq tools + memory)", "type": "main", "index": 0 }]] },
+    "AI Agent (Backend: menu/order/faq tools + memory)": { "main": [[{ "node": "Not a Duplicate?", "type": "main", "index": 0 }]] },
+    "Not a Duplicate?": {
+      "main": [
+        [
+          { "node": "Response Formatter -> Send WhatsApp Text", "type": "main", "index": 0 },
+          { "node": "Split Menu Images", "type": "main", "index": 0 }
+        ],
+        [{ "node": "Duplicate - Skip", "type": "main", "index": 0 }]
+      ]
+    },
+    "Split Menu Images": { "main": [[{ "node": "Send WhatsApp Image", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "SmartServe AI - orchestrates WhatsApp message routing, voice transcription (Whisper) and image understanding (GPT-4o Vision) in n8n, then delegates menu/order/FAQ logic and conversation memory to the SmartServe backend via POST /api/n8n/process-message, and sends the reply back over the WhatsApp Cloud API.",
+    "requiredCredentials": [
+      "HTTP Header Auth credential named for Meta Graph API: header 'Authorization', value 'Bearer <WHATSAPP_ACCESS_TOKEN>'",
+      "HTTP Header Auth credential named for OpenAI: header 'Authorization', value 'Bearer <OPENAI_API_KEY>'"
+    ],
+    "requiredEnvVars": ["WHATSAPP_VERIFY_TOKEN", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_API_VERSION", "OPENAI_API_KEY", "BACKEND_URL", "N8N_SHARED_SECRET"]
+  }
+}

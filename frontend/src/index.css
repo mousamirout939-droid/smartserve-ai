@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-char-900 text-cream font-body;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #D4A017;
+  color: #14110F;
+}
+
+/* Kitchen-ticket style card: perforated top edge instead of generic rounded shadow card */
+.ticket {
+  background: #1D1915;
+  border: 1px solid #332B22;
+  border-radius: 4px;
+  position: relative;
+}
+.ticket::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    #4A3E30 0px,
+    #4A3E30 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #332B22; border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
