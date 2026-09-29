@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SmartServe AI — WhatsApp Food Ordering Agent
 
 A real, working WhatsApp ordering assistant: customers order by text, voice, or image on WhatsApp; an AI agent (OpenAI function calling) understands them, reads your live menu from MongoDB, builds a cart, calculates exact totals server-side, and only creates/confirms orders after explicit customer confirmation. An admin dashboard manages the menu, orders, customers, FAQs, and shows AI analytics.
