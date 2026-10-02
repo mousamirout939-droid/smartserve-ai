@@ -56,6 +56,7 @@ app.use('/api/customer-auth', customerAuthRoutes);
 app.use('/api/customer', customerPortalRoutes);
 
 app.use('/menu', apiLimiter, menuRoutes);
+app.use('/auth', apiLimiter, authRoutes);
 app.use('/customer-auth', apiLimiter, customerAuthRoutes);
 app.use('/customer', apiLimiter, customerPortalRoutes);
 
