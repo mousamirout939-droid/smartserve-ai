@@ -56,6 +56,10 @@ app.use('/api/customer-auth', customerAuthRoutes);
 app.use('/api/customer', customerPortalRoutes);
 
 app.use('/menu', apiLimiter, menuRoutes);
+app.use('/orders', apiLimiter, orderRoutes);
+app.use('/customers', apiLimiter, customerRoutes);
+app.use('/faqs', apiLimiter, faqRoutes);
+app.use('/conversations', apiLimiter, conversationRoutes);
 app.use('/auth', apiLimiter, authRoutes);
 app.use('/analytics', apiLimiter, analyticsRoutes);
 app.use('/customer-auth', apiLimiter, customerAuthRoutes);
