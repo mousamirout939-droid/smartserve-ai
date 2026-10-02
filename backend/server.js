@@ -55,6 +55,10 @@ app.use('/api/n8n', n8nRoutes);
 app.use('/api/customer-auth', customerAuthRoutes);
 app.use('/api/customer', customerPortalRoutes);
 
+app.use('/menu', apiLimiter, menuRoutes);
+app.use('/customer-auth', apiLimiter, customerAuthRoutes);
+app.use('/customer', apiLimiter, customerPortalRoutes);
+
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
